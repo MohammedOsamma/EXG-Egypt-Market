@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from egx.config import load_config
 from egx.data.loader import load_csv, load_yfinance, validate
@@ -19,6 +20,7 @@ from egx.portfolio.portfolio import Portfolio
 from egx.indicators import add_indicators, indicator_table
 from egx.scanner import scan_row
 from egx import charts
+from egx.data.live import fetch_quotes, delay_label
 
 st.set_page_config(page_title="EGX AI Paper Trading", layout="wide")
 DATA.mkdir(exist_ok=True)
@@ -47,6 +49,72 @@ def cached_info(ticker):
     return get_info(ticker)
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def get_quotes():
+    return fetch_quotes()
+
+
+def quote_for(sym):
+    """Chart overlay dict for the live price line, or None (never raises)."""
+    try:
+        q = get_quotes()
+        r = q[q["symbol"] == sym]
+        if r.empty:
+            return None
+        r = r.iloc[0]
+        return {"price": float(r["close"]), "label": f"Live {r['close']:.2f} ({delay_label(r['update_mode'])})"}
+    except Exception:
+        return None
+
+
+def add_live(table):
+    try:
+        q = get_quotes()
+    except Exception as e:
+        st.warning(f"Live prices unavailable: {e}")
+        return table
+    m = q[["symbol", "close", "change", "volume"]].rename(
+        columns={"symbol": "Symbol", "close": "Live price", "change": "Live %", "volume": "Live volume"})
+    m["Live %"] = m["Live %"].round(2)
+    st.caption(f"Live columns: TradingView quotes fetched {q['fetched_at'].iloc[0]:%H:%M:%S} Cairo time, "
+               f"{delay_label(q['update_mode'].iloc[0])}. Display only, not used for signals.")
+    return table.merge(m, on="Symbol", how="left")
+
+
+def live_panel(sym, last_close, auto):
+    @st.fragment(run_every=60 if auto else None)
+    def _panel():
+        try:
+            q = get_quotes()
+        except Exception as e:
+            st.warning(f"Live price unavailable: {e}")
+            return
+        r = q[q["symbol"] == sym]
+        if r.empty:
+            st.warning("TradingView has no quote for this symbol code (codes can differ from Yahoo's).")
+            return
+        r = r.iloc[0]
+        c = st.columns(4)
+        c[0].metric("Live price", f"{r['close']:.2f}", f"{r['change']:.2f}% today" if pd.notna(r["change"]) else None)
+        c[1].metric("vs last daily close", f"{(r['close'] / last_close - 1) * 100:.2f}%")
+        c[2].metric("Day range", f"{r['low']:.2f} - {r['high']:.2f}")
+        c[3].metric("Volume today", f"{int(r['volume']):,}" if pd.notna(r["volume"]) else "n/a")
+        st.caption(f"TradingView quote fetched {r['fetched_at']:%H:%M:%S} Cairo time | {delay_label(r['update_mode'])}. "
+                   "Display only: signals use completed daily bars.")
+    _panel()
+
+
+def show_price_chart(d, trades, bars, live=None):
+    n = None if bars == "All" else int(bars)
+    if st.session_state.get("interactive", True):
+        fig = charts.price_chart(d, trades, n, live, interactive=True)
+        components.html(charts.fig_html(fig), height=980, scrolling=False)
+        st.caption("Drag = pan | mouse wheel = zoom | double-click = reset | buttons above the chart = 1M/3M/6M/1Y/All. "
+                   "Price axes auto-fit as you move.")
+    else:
+        st.plotly_chart(charts.price_chart(d, trades, n, live, interactive=False), use_container_width=True, config=charts.CFG)
+
+
 def color_reading(v):
     return {"Buy": "background-color:#a5d6a7;color:black", "Sell": "background-color:#ef9a9a;color:black"}.get(v, "")
 
@@ -63,6 +131,10 @@ def stocks_page():
         sel_sectors = st.multiselect("Sector", sectors, default=sectors)
         bars = st.select_slider("Chart bars", [60, 120, 250, 500, 1000, "All"], value=250)
         markers = st.checkbox("Show system BUY/SELL markers (runs a backtest, slower)")
+        use_live = st.checkbox("Live prices (TradingView, delayed)", value=True)
+        auto = st.checkbox("Auto-refresh live price every 60s", value=False)
+        if st.button("Refresh live prices now"):
+            get_quotes.clear()
         scan = st.button("Scan all stocks", type="primary", use_container_width=True)
         st.caption("Scan downloads/updates prices for every listed stock. Edit the list in config/egx_stocks.csv.")
 
@@ -91,6 +163,8 @@ def stocks_page():
         ok = (table["Status"] == "OK").sum()
         st.caption(f"{ok} of {len(table)} stocks have fresh data. 'No data' means Yahoo returned nothing for that ticker.")
 
+    if use_live:
+        table = add_live(table)
     ev = st.dataframe(table, on_select="rerun", selection_mode="single-row", hide_index=True,
                       use_container_width=True, height=330)
     rows_sel = ev.selection.rows if ev is not None else []
@@ -98,10 +172,10 @@ def stocks_page():
         sym = table.iloc[rows_sel[0]]["Symbol"]
     else:
         sym = st.selectbox("Or choose a stock", base["symbol"])
-    stock_detail(sym, stocks, cfg, bars, markers)
+    stock_detail(sym, stocks, cfg, bars, markers, use_live, auto)
 
 
-def stock_detail(sym, stocks, cfg, bars, markers):
+def stock_detail(sym, stocks, cfg, bars, markers, use_live, auto):
     row = stocks[stocks["symbol"] == sym].iloc[0]
     st.divider()
     st.header(f"{sym}: {row['name']}")
@@ -123,7 +197,9 @@ def stock_detail(sym, stocks, cfg, bars, markers):
     k[1].metric("52w high", f"{yr.max():.2f}")
     k[2].metric("52w low", f"{yr.min():.2f}")
     k[3].metric("Avg value 20d (EGP)", f"{int((c * df['volume']).tail(20).mean()):,}")
-    k[4].metric("Last bar", str(df.index[-1].date()))
+    k[4].metric("Last daily bar", str(df.index[-1].date()))
+    if use_live:
+        live_panel(sym, float(c.iloc[-1]), auto)
 
     t_chart, t_ind, t_sys, t_info = st.tabs(["Chart", "Buy/Sell indicators", "System decision", "Company info"])
 
@@ -132,9 +208,9 @@ def stock_detail(sym, stocks, cfg, bars, markers):
         if markers:
             with st.spinner("Running backtest for markers..."):
                 tr = system_markers(sym, str(df.index[-1].date()), json.dumps(cfg))
-        n = None if bars == "All" else int(bars)
-        st.plotly_chart(charts.price_chart(d, tr, n), use_container_width=True)
-        st.caption("Candles + SMA20/50/200 + Bollinger, volume, RSI, MACD, Stochastic. Weekends/holidays are skipped.")
+        show_price_chart(d, tr, bars, quote_for(sym) if use_live else None)
+        st.caption("Candles + SMA20/50/200 + Bollinger, volume, RSI, MACD, Stochastic. Weekends/holidays are skipped. "
+                   "The orange dashed line is the delayed live price.")
 
     with t_ind:
         table, score, overall, counts = indicator_table(d)
@@ -299,8 +375,7 @@ def backtest_page():
 
     with tabs[1]:
         n = st.select_slider("Bars", [60, 120, 250, 500, 1000, "All"], value=250, key="bt_bars")
-        st.plotly_chart(charts.price_chart(add_indicators(sub), tr if not tr.empty else None, None if n == "All" else int(n)),
-                        use_container_width=True)
+        show_price_chart(add_indicators(sub), tr if not tr.empty else None, n)
         st.caption("Green/red triangles are the system's simulated fills for this backtest.")
 
     with tabs[2]:
@@ -348,5 +423,6 @@ def backtest_page():
 
 # =====================================================================
 page = st.sidebar.radio("Page", ["Stocks", "Backtest"], horizontal=True)
+st.sidebar.checkbox("Smooth interactive charts (needs internet)", value=True, key="interactive")
 st.sidebar.divider()
 stocks_page() if page == "Stocks" else backtest_page()
