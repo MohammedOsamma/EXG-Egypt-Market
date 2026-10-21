@@ -1,0 +1,30 @@
+capital: 1000
+lot_size: 1
+slippage_pct: 0.002        # applied against you on every fill
+
+# PLACEHOLDERS: replace with your broker's / EGX's actual fee schedule before trusting results
+fees:
+  commission_pct: 0.0015
+  min_commission: 2.5
+  exchange_pct: 0.0005
+
+technical:
+  min_bars: 60
+  sma_fast: 20
+  sma_slow: 50
+  rsi_period: 14
+  rsi_buy_min: 45
+  rsi_buy_max: 70
+  sr_lookback: 20
+  resistance_buffer: 0.02   # within 2% below resistance = "near resistance"
+  atr_period: 14
+
+risk:
+  risk_per_trade_pct: 0.03      # max loss at stop, % of equity
+  max_position_pct: 0.80        # max % of equity in one stock
+  atr_stop_mult: 2.0
+  min_rr: 1.5
+  min_edge_over_fees: 3.0       # expected reward must be >= 3x round-trip fees
+  min_avg_daily_value: 50000    # EGP, 20-day average traded value
+  max_volume_participation: 0.05
+  size_buffer_pct: 0.01         # cash reserved for slippage/fees when sizing

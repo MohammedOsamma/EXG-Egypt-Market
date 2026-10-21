@@ -1,0 +1,40 @@
+symbol,name,ticker,sector
+COMI,Commercial International Bank (CIB),COMI.CA,Banks
+HDBK,Housing and Development Bank,HDBK.CA,Banks
+ADIB,Abu Dhabi Islamic Bank Egypt,ADIB.CA,Banks
+CIEB,Credit Agricole Egypt,CIEB.CA,Banks
+QNBA,QNB Egypt,QNBA.CA,Banks
+EXPA,Export Development Bank of Egypt,EXPA.CA,Banks
+HRHO,EFG Holding,HRHO.CA,Financial Services
+RAYA,Raya Holding,RAYA.CA,Financial Services
+BTFH,Beltone Holding,BTFH.CA,Financial Services
+CCAP,Qalaa Holdings,CCAP.CA,Financial Services
+CNFN,Contact Financial Holding,CNFN.CA,Financial Services
+EKHO,Egyptian Kuwaiti Holding,EKHO.CA,Financial Services
+TMGH,Talaat Moustafa Group,TMGH.CA,Real Estate
+PHDC,Palm Hills Developments,PHDC.CA,Real Estate
+MNHD,Madinet Masr,MNHD.CA,Real Estate
+EMFD,Emaar Misr,EMFD.CA,Real Estate
+OCDI,SODIC,OCDI.CA,Real Estate
+ORHD,Orascom Development Egypt,ORHD.CA,Real Estate
+EGTS,Egyptian Resorts,EGTS.CA,Real Estate
+SWDY,Elsewedy Electric,SWDY.CA,Industrials
+ORAS,Orascom Construction,ORAS.CA,Industrials
+ESRS,Ezz Steel,ESRS.CA,Basic Resources
+EGAL,Egypt Aluminum,EGAL.CA,Basic Resources
+ABUK,Abu Qir Fertilizers,ABUK.CA,Chemicals
+MFPC,Misr Fertilizers (MOPCO),MFPC.CA,Chemicals
+SKPC,Sidi Kerir Petrochemicals,SKPC.CA,Chemicals
+AMOC,Alexandria Mineral Oils,AMOC.CA,Energy
+ETEL,Telecom Egypt,ETEL.CA,Telecom
+EFIH,e-finance,EFIH.CA,Technology
+FWRY,Fawry,FWRY.CA,Technology
+CLHO,Cleopatra Hospital,CLHO.CA,Healthcare
+ISPH,Ibnsina Pharma,ISPH.CA,Healthcare
+EAST,Eastern Company,EAST.CA,Consumer
+JUFO,Juhayna Food Industries,JUFO.CA,Consumer
+DOMT,Arabian Food Industries (Domty),DOMT.CA,Consumer
+POUL,Cairo Poultry,POUL.CA,Consumer
+SUGR,Delta Sugar,SUGR.CA,Consumer
+ORWE,Oriental Weavers,ORWE.CA,Consumer
+AUTO,GB Corp,AUTO.CA,Consumer
